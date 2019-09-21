@@ -1,0 +1,206 @@
+<!doctype html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <title>Hello World</title>
+    </head>
+    <style>
+     body {
+         display: flex;
+         align-items: center;
+         justify-content: center;
+         background-color: gainsboro;
+         padding-top: 3%;
+     }
+
+    </style>
+
+    <script src="pixi/pixi.min.js"></script>
+    <script src="pixi/pixi-sound.js"></script>
+    <script src="pixi/tink.js"></script>
+
+    <body>
+        <script type="text/javascript">
+
+         let style = new PIXI.TextStyle({
+             fontFamily: "Consolas",
+             fontSize: 120,
+             fill: "black",
+         });
+
+         let small_style_on = new PIXI.TextStyle({
+             fontFamily: "Consolas",
+             fontSize: 24,
+             fill: "black",
+         });
+
+         let small_style_off = new PIXI.TextStyle({
+             fontFamily: "Consolas",
+             fontSize: 24,
+             fill: "grey",
+         });
+
+         let type = "WebGL"
+         if(!PIXI.utils.isWebGLSupported()){
+             type = "canvas"
+         }
+
+         //Aliases
+         let Application = PIXI.Application,
+             loader = PIXI.loader,
+             resources = PIXI.loader.resources,
+             TextureCache = PIXI.utils.TextureCache,
+             Sprite = PIXI.Sprite,
+             Rectangle = PIXI.Rectangle;
+
+         //Create a Pixi Application
+         let app = new PIXI.Application({
+             width: 800,
+             height: 400,
+             backgroundColor: "0x999999"
+         });
+
+         //Add the canvas that Pixi automatically created for you to the HTML document
+         document.body.appendChild(app.view);
+
+         //load an image and run the `setup` function when it's done
+         PIXI.loader
+             .add("images/buttons.json")
+             .load(setup);
+
+         let id_buttons;
+         let tink;
+         let pointer;
+         let click_sound;
+
+         function create_button(x, y, bit) {
+
+             let buttonOn = tink.button(buttonOnFrames, x, y);
+             let buttonOff = tink.button(buttonOffFrames, x, y);
+
+             buttonOn.release = () => {
+                 buttonOn.visible = false;
+                 buttonOn.enabled = false;
+
+                 buttonOff.visible = true;
+                 buttonOff.enabled = true;
+
+                 byteChanged(bit, 0);
+                 click_sound.play();
+             };
+
+             buttonOff.release = () => {
+                 buttonOn.visible = true;
+                 buttonOn.enabled = true;
+
+                 buttonOff.visible = false;
+                 buttonOff.enabled = false;
+
+                 byteChanged(bit, 1);
+                 click_sound.play();
+             };
+
+             buttonOn.enabled = false;
+             buttonOn.visible = false;
+
+             buttonOff.visible = true;
+             buttonOff.enabled = true;
+
+             return [buttonOff, buttonOn];
+         }
+
+
+         let byte = [0, 0, 0, 0, 0, 0, 0, 0]
+         function byteChanged(bit, state) {
+             byte[bit] = state;
+             result_text.text = binaryToDecimal();
+             for (let i=0; i<=7; i++) {
+                 if (byte[i] == 0) {
+                     bit_labels[7-i].style = small_style_off;
+                 } else {
+                     bit_labels[7-i].style = small_style_on;
+                 }
+             }
+         }
+
+         function binaryToDecimal() {
+             return 1*byte[0] + 2*byte[1] + 4*byte[2] + 8*byte[3] + 16*byte[4] + 32*byte[5] + 64*byte[6] + 128*byte[7];
+         }
+
+         let buttonOnFrames, buttonOffFrames;
+         let result_text;
+         let buttons;
+         let bit_labels;
+
+         //This `setup` function will run when the image has loaded
+         function setup() {
+
+             tink = new Tink(PIXI, app.renderer.view);
+             pointer = tink.makePointer();
+
+             id_buttons = loader.resources["images/buttons.json"].textures;
+             buttonOnFrames = [
+                 id_buttons["green_button11.png"],
+             ];
+             buttonOffFrames = [
+                 id_buttons["grey_button12.png"],
+             ];
+
+             let button_width = id_buttons["green_button11.png"].width;
+             let screen_width = app.screen.width;
+             let padding = 80;
+             let area_width = screen_width - padding*2;
+             let cell_width = area_width/8;
+
+             buttons = new PIXI.Container();
+             for (let i=0; i<8; i++) {
+                 let x = padding - button_width/2 + cell_width * i + button_width/2;
+                 let y = 70;
+                 let button = create_button(x, y, 7-i);
+                 let buttonOff = button[0];
+                 let buttonOn = button[1];
+
+                 buttons.addChild(buttonOff);
+                 buttons.addChild(buttonOn);
+
+             }
+             app.stage.addChild(buttons);
+
+             bit_labels = []
+             for (let i=0; i<8; i++) {
+                 let x = padding - button_width/2 + cell_width * i + button_width;
+                 let y = 140;
+                 let text = new PIXI.Text(2**(7-i), small_style_off);
+                 text.anchor.x = 0.5;
+                 text.x = x;
+                 text.y = y;
+                 app.stage.addChild(text);
+                 bit_labels.push(text);
+             }
+
+             click_sound = PIXI.sound.Sound.from('sounds/switch2.ogg');
+
+             result_text = new PIXI.Text('0', style);
+             result_text.x = app.screen.width/2;
+             result_text.y = 230;
+             result_text.anchor.x = 0.5
+             app.stage.addChild(result_text);
+
+             app.ticker.add(delta => gameLoop(delta));
+
+         }
+
+         function gameLoop(delta) {
+
+             if (pointer.hitTestSprite(buttons)) {
+                 pointer.cursor = "pointer";
+             } else {
+                 pointer.cursor = "auto";
+             }
+
+             tink.update();
+         }
+
+        </script>
+    </body>
+</html>
